@@ -23,11 +23,12 @@ type Hub struct {
 	ClientId string
 	Log      *log.Logger
 
-	houseId int
-	token   Token
-	devices map[string]Device
-	scenes  map[int]Scene
-	lock    sync.Mutex
+	connected bool
+	houseId   int
+	token     Token
+	devices   map[string]Device
+	scenes    map[int]Scene
+	lock      sync.Mutex
 }
 
 func (h *Hub) getJson(url string, res interface{}) error {
@@ -191,6 +192,10 @@ func (h *Hub) command(cmd interface{}, res interface{}) error {
 }
 
 func (h *Hub) RefreshDevicesAndScenes() error {
+	if !h.connected {
+		return errors.New("not connected")
+	}
+
 	if err := h.queryDevices(); err != nil {
 		return err
 	}
@@ -204,6 +209,10 @@ func (h *Hub) RefreshDevicesAndScenes() error {
 }
 
 func (h *Hub) Subscribe(fn func(dev Device, state string)) error {
+	if !h.connected {
+		return errors.New("not connected")
+	}
+
 	streamUrl := fmt.Sprintf("%s/houses/%d/stream", BaseUrl, h.houseId)
 	if h.Log != nil {
 		h.Log.Println("subscribe", streamUrl)
@@ -243,6 +252,10 @@ func (h *Hub) Subscribe(fn func(dev Device, state string)) error {
 }
 
 func (h *Hub) Device(insteonId string) (Device, error) {
+	if !h.connected {
+		return Device{}, errors.New("not connected")
+	}
+
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	for _, dev := range h.devices {
@@ -254,6 +267,10 @@ func (h *Hub) Device(insteonId string) (Device, error) {
 }
 
 func (h *Hub) Devices() ([]Device, error) {
+	if !h.connected {
+		return nil, errors.New("not connected")
+	}
+
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	devs := make([]Device, 0, len(h.devices))
@@ -264,6 +281,10 @@ func (h *Hub) Devices() ([]Device, error) {
 }
 
 func (h *Hub) Scene(sceneId int) (Scene, error) {
+	if !h.connected {
+		return Scene{}, errors.New("not connected")
+	}
+
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	for _, scene := range h.scenes {
@@ -275,6 +296,10 @@ func (h *Hub) Scene(sceneId int) (Scene, error) {
 }
 
 func (h *Hub) Scenes() ([]Scene, error) {
+	if !h.connected {
+		return nil, errors.New("not connected")
+	}
+
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	scenes := make([]Scene, 0, len(h.scenes))
@@ -286,8 +311,12 @@ func (h *Hub) Scenes() ([]Scene, error) {
 
 func (h *Hub) Connect() error {
 	h.lock.Lock()
+	if h.connected {
+		return errors.New("already connected")
+	}
 	h.devices = make(map[string]Device)
 	h.scenes = make(map[int]Scene)
+	h.connected = true
 	h.lock.Unlock()
 
 	if err := h.login(); err != nil {
@@ -310,6 +339,10 @@ func (h *Hub) Connect() error {
 }
 
 func (h *Hub) SetDeviceLevel(insteonId string, level int) error {
+	if !h.connected {
+		return errors.New("not connected")
+	}
+
 	if level < 0 || level > 100 {
 		return errors.New("level must be between 0 and 100")
 	}
@@ -338,6 +371,10 @@ func (h *Hub) SetDeviceLevel(insteonId string, level int) error {
 }
 
 func (h *Hub) SetSceneState(sceneId int, state bool) error {
+	if !h.connected {
+		return errors.New("not connected")
+	}
+
 	dev, err := h.Scene(sceneId)
 	if err != nil {
 		return err
@@ -357,6 +394,10 @@ func (h *Hub) SetSceneState(sceneId int, state bool) error {
 }
 
 func (h *Hub) GetStatus(insteonId string) (int, error) {
+	if !h.connected {
+		return 0, errors.New("not connected")
+	}
+
 	dev, err := h.Device(insteonId)
 	if err != nil {
 		return 0, err
